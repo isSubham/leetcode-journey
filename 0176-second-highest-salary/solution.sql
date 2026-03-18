@@ -1,0 +1,12 @@
+-- Write your PostgreSQL query statement below
+
+
+SELECT MAX(salary) AS SecondHighestSalary
+FROM (
+    SELECT 
+        salary, 
+        DENSE_RANK() OVER (ORDER BY salary DESC) AS dr
+    FROM Employee
+) t 
+WHERE t.dr = 2;
+
