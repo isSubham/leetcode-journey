@@ -58,6 +58,7 @@ Folder mapping lives entirely in [`config/tag-folder-map.json`](config/tag-folde
 
 ```
 ├── .github/workflows/leetcode_sync.yml   # sync + organize, one job
+├── AGENTS.md                             # tells AI coding agents how to use this repo
 ├── config/tag-folder-map.json            # your categorization rules
 ├── scripts/organize.js                   # the organizer logic
 └── solutions/                            # your synced, auto-sorted solutions
@@ -66,6 +67,18 @@ Folder mapping lives entirely in [`config/tag-folder-map.json`](config/tag-folde
     ├── DP/
     └── ...
 ```
+
+## Connect an AI coding agent
+
+Because everything here is plain files in folders — not locked behind a dashboard or a proprietary API — any AI coding agent (Claude Code, Cursor, Copilot Workspace) can reason over your entire solving history the moment you clone the repo locally.
+
+`AGENTS.md` at the repo root tells your agent exactly how the folders are structured, so you can immediately ask things like:
+
+- *"Look at my `solutions/DP` folder and tell me what patterns I've covered and what I'm missing."*
+- *"Review my `solutions/Graphs` folder for style consistency."*
+- *"Based on `solutions/`, suggest my next 5 problems to close gaps."*
+
+No integration setup required — clone, open in your agent of choice, and ask.
 
 ## Security notes
 
