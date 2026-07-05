@@ -1,16 +1,46 @@
 name: Sync LeetCode
+
 on:
-  workflow_dispatch: # Allows you to run it manually with a button click
+  workflow_dispatch:
   schedule:
-    - cron: "0 8 * * 6" # Automatically runs once a week (you can adjust this)
+    - cron: "0 8 * * 6"
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Step 1: syncs new accepted solutions straight to GitHub via the
+      # REST API. This does NOT check out the repo locally.
       - name: Run LeetCode Sync
         uses: joshcai/leetcode-sync@v1.7
         with:
           github-token: ${{ github.token }}
           leetcode-session: ${{ secrets.LEETCODE_SESSION }}
           leetcode-csrf-token: ${{ secrets.LEETCODE_CSRF_TOKEN }}
+          destination-folder: solutions
+
+      # Step 2: NOW check out the repo, so we get the files the
+      # previous step just committed via the API.
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Organize solutions by topic
+        run: node scripts/organize.js
+        env:
+          DEST_FOLDER: "solutions"
+
+      - name: Commit organized files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Organize solutions by topic"
+          git push
