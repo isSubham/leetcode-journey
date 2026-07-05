@@ -1,8 +1,9 @@
 // scripts/organize.js
 //
-// Moves newly-synced LeetCode solution files (dropped flat into
-// DEST_FOLDER by joshcai/leetcode-sync) into per-topic subfolders,
-// using LeetCode's own topicTags as ground truth instead of guessing.
+// Moves newly-synced LeetCode solution FOLDERS (each problem gets its
+// own folder like "0006-zigzag-conversion/" containing README.md +
+// solution file) into per-topic subfolders, using LeetCode's own
+// topicTags as ground truth instead of guessing.
 //
 // Requires Node 18+ (uses the built-in global fetch).
 
@@ -25,13 +26,10 @@ function loadTagMap() {
   return JSON.parse(raw);
 }
 
-// Filenames from leetcode-sync look like "two_sum.js", "fizz_buzz.py",
-// sometimes with a numeric prefix like "1.two_sum.js". This normalizes
-// them back into LeetCode's titleSlug format ("two-sum", "fizz-buzz").
-function filenameToSlug(filename) {
-  const withoutExt = filename.replace(/\.[^.]+$/, "");
-  const withoutLeadingNumber = withoutExt.replace(/^\d+[.\-_]*/, "");
-  return withoutLeadingNumber.toLowerCase().replace(/_/g, "-");
+// Folder names from leetcode-sync look like "0006-zigzag-conversion".
+// Strip the zero-padded number prefix to get LeetCode's titleSlug.
+function folderNameToSlug(folderName) {
+  return folderName.replace(/^\d+-/, "").toLowerCase();
 }
 
 function sleep(ms) {
@@ -81,11 +79,15 @@ function resolveFolder(tags, tagMap) {
   return tagMap["_default"] || "Misc";
 }
 
-function getTopLevelFiles(dir) {
+// Returns top-level directories that are NOT already a known topic
+// folder (e.g. skips "Arrays", "SQL-DBMS" — only picks up freshly
+// synced, unsorted problem folders like "0006-zigzag-conversion").
+function getUnorganizedProblemFolders(dir, knownFolders) {
   return fs
     .readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name);
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((name) => !knownFolders.has(name));
 }
 
 // ---- Main ---------------------------------------------------------------
@@ -99,34 +101,34 @@ async function main() {
     return;
   }
 
-  const files = getTopLevelFiles(DEST_FOLDER);
+  const problemFolders = getUnorganizedProblemFolders(DEST_FOLDER, knownFolders);
 
-  if (files.length === 0) {
-    console.log("No new top-level solution files found. Nothing to organize.");
+  if (problemFolders.length === 0) {
+    console.log("No new unsorted problem folders found. Nothing to organize.");
     return;
   }
 
-  console.log(`Found ${files.length} file(s) to categorize in "${DEST_FOLDER}".`);
+  console.log(`Found ${problemFolders.length} problem folder(s) to categorize in "${DEST_FOLDER}".`);
 
   const summary = [];
 
-  for (const filename of files) {
-    const slug = filenameToSlug(filename);
-    console.log(`Processing "${filename}" -> slug "${slug}"`);
+  for (const problemFolder of problemFolders) {
+    const slug = folderNameToSlug(problemFolder);
+    console.log(`Processing "${problemFolder}" -> slug "${slug}"`);
 
     const tags = await fetchTopicTags(slug);
     const folder = resolveFolder(tags, tagMap);
 
-    const targetDir = path.join(DEST_FOLDER, folder);
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
+    const targetParent = path.join(DEST_FOLDER, folder);
+    if (!fs.existsSync(targetParent)) {
+      fs.mkdirSync(targetParent, { recursive: true });
     }
 
-    const sourcePath = path.join(DEST_FOLDER, filename);
-    const targetPath = path.join(targetDir, filename);
+    const sourcePath = path.join(DEST_FOLDER, problemFolder);
+    const targetPath = path.join(targetParent, problemFolder);
 
     fs.renameSync(sourcePath, targetPath);
-    summary.push({ filename, slug, tags, folder });
+    summary.push({ problemFolder, slug, tags, folder });
 
     await sleep(REQUEST_DELAY_MS);
   }
@@ -134,7 +136,7 @@ async function main() {
   console.log("\n--- Organize summary ---");
   for (const item of summary) {
     console.log(
-      `${item.filename} -> ${item.folder}  (tags: ${item.tags.join(", ") || "none found"})`
+      `${item.problemFolder} -> ${item.folder}  (tags: ${item.tags.join(", ") || "none found"})`
     );
   }
 }
