@@ -1,6 +1,8 @@
 # LeetCode Auto-Sync & Auto-Organize
 
-Automatically sync your accepted LeetCode submissions to GitHub and sort them into topic folders — zero browser extensions, zero shared credentials, runs entirely inside your own repo.
+> Automatically sync your accepted LeetCode submissions to GitHub and sort them into topic folders — zero browser extensions, zero shared credentials, runs entirely inside your own repo.
+
+**→ [Use this template](../../generate)** to create your own independent copy in one click.
 
 ## Why this exists
 
@@ -34,13 +36,14 @@ The sync step and the organize step are architecturally different: sync writes d
 
 ## Setup (10 minutes)
 
-1. Click **Use this template** above to create your own independent copy of this repo. (Not a fork — a template gives you a clean copy with no link back here and no shared secrets.)
+1. Click **Use this template** at the top of this page and choose **Create a new repository**. Use a template — not a fork — so you get a clean copy with no history shared with this repo, and your secrets stay completely separate.
 2. Go to **Settings → Actions → General → Workflow permissions**, select **Read and write permissions**, save.
 3. Log into LeetCode, open DevTools → Network tab, refresh, and grab the `LEETCODE_SESSION` and `csrftoken` cookie values from any request's headers.
 4. Go to **Settings → Secrets and variables → Actions**, add two repo secrets: `LEETCODE_SESSION` and `LEETCODE_CSRF_TOKEN`.
 5. Go to the **Actions** tab, select **Sync LeetCode**, click **Run workflow**.
 
 That's it. Every future run syncs new solutions and files them into the right topic folder automatically.
+
 
 ## Customizing the categorization
 
@@ -59,8 +62,14 @@ Folder mapping lives entirely in [`config/tag-folder-map.json`](config/tag-folde
 ```
 ├── .github/workflows/leetcode_sync.yml   # sync + organize, one job
 ├── AGENTS.md                             # tells AI coding agents how to use this repo
+├── CONTRIBUTING.md                       # how to extend topic mappings
 ├── config/tag-folder-map.json            # your categorization rules
 ├── scripts/organize.js                   # the organizer logic
+├── tools/refresh-secrets/                # local helper to refresh session secrets
+│   ├── refresh.js
+│   └── lib/
+│       ├── encryptor.js
+│       └── github-client.js
 └── solutions/                            # your synced, auto-sorted solutions
     ├── Arrays/
     ├── SQL-DBMS/
@@ -90,6 +99,17 @@ No integration setup required — clone, open in your agent of choice, and ask.
 ## Credit
 
 Built on top of [`joshcai/leetcode-sync`](https://github.com/joshcai/leetcode-sync) for the sync step. The organize layer, topic-tag mapping, and combined workflow are original.
+
+## Keeping it running: when your session expires
+
+LeetCode session cookies aren't permanent — they're deliberately short-lived, since that's how session-based auth is supposed to work. Eventually the sync workflow will start failing (check the Actions tab — you'll see an auth error).
+
+When that happens, you have two options:
+
+1. **Manual refresh** — repeat the DevTools cookie-copy steps from Setup above and update your two repo secrets.
+2. **Faster refresh** (if you've cloned the repo locally) — run `node tools/refresh-secrets/refresh.js`. It opens a real browser, you log in like normal, and it automatically re-encrypts and updates your GitHub secrets for you. See [`tools/refresh-secrets/`](tools/refresh-secrets/) for one-time setup.
+
+Either way, your password never touches this tool — you always log in directly on LeetCode's own page. The script only ever reads the resulting session cookie, the same value you'd otherwise copy by hand.
 
 ## License
 

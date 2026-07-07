@@ -1,0 +1,7 @@
+# ── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+
+# ── Local secrets (never commit these) ──────────────────────────────────────
+# .env holds your GitHub PAT. Only .env.example (with empty values) is tracked.
+.env
+*/.env
