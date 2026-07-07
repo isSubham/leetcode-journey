@@ -8,6 +8,32 @@
 
 require("dotenv").config();
 const puppeteer = require("puppeteer");
+const { execSync } = require("child_process");
+const fs = require("fs");
+
+// Probe common system Chrome/Chromium paths so the script works across machines
+// without any config. Falls back to Puppeteer's bundled binary if none found.
+function resolveBrowser() {
+    const candidates = [
+        // Linux
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+        // macOS
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        // Windows
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    ];
+    const found = candidates.find((p) => fs.existsSync(p));
+    if (found) {
+        return found;
+    }
+    // Fall back to Puppeteer's bundled binary
+    return puppeteer.executablePath();
+}
 
 const { encryptSecret } = require("./lib/encryptor");
 const {
@@ -55,7 +81,11 @@ async function main() {
 
     console.log("Launching browser — log into LeetCode when the window opens...");
 
-    const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({
+        headless: false,
+        executablePath: resolveBrowser(),
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
     const page = await browser.newPage();
     await page.goto("https://leetcode.com/accounts/login/", {
         waitUntil: "networkidle2",

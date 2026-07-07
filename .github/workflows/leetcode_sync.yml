@@ -26,6 +26,8 @@ jobs:
       # previous step just committed via the API.
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Node
         uses: actions/setup-node@v4
