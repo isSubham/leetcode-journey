@@ -1,116 +1,127 @@
 # LeetCode Auto-Sync & Auto-Organize
 
-> Automatically sync your accepted LeetCode submissions to GitHub and sort them into topic folders — zero browser extensions, zero shared credentials, runs entirely inside your own repo.
+> Sync accepted LeetCode submissions to GitHub and organize them by topic — no browser extensions, no third-party servers, no shared credentials.
 
-**→ [Use this template](../../generate)** to create your own independent copy in one click.
+[![Use this template](https://img.shields.io/badge/Use%20this%20template-2ea44f?style=for-the-badge&logo=github&logoColor=white)](https://github.com/isSubham/leetcode-journey/generate)
 
-## Why this exists
+## Motivation
 
-Most "sync my LeetCode to GitHub" tools ask you to install a browser extension with broad permissions. This approach doesn't. It's a GitHub Actions workflow that talks directly to LeetCode's API using your session cookie, stored as an encrypted repo secret that never leaves GitHub's infrastructure and is never visible to anyone but you.
+The existing ecosystem for syncing LeetCode to GitHub largely relies on browser extensions that request broad permissions or third-party services that you have to trust with your session token. This repo takes a different approach: a GitHub Actions workflow that authenticates directly with LeetCode's API using a session cookie stored as an encrypted repo secret. The secret never leaves GitHub's infrastructure, is never printed in logs, and is never visible to anyone — including you — after it's set.
 
-No extension. No third-party server. No one but you and GitHub ever sees your session token.
+## How it works
 
-## What it does
+Two things happen on every run:
 
-1. **Syncs** every newly-accepted submission from LeetCode into this repo (via [`joshcai/leetcode-sync`](https://github.com/joshcai/leetcode-sync)).
-2. **Organizes** each solution into a topic folder — Arrays, DP, SQL-DBMS, Graphs, etc. — using LeetCode's own topic tags as ground truth, not guesswork.
+1. [`joshcai/leetcode-sync`](https://github.com/joshcai/leetcode-sync) fetches newly accepted submissions and commits them directly to the repo via GitHub's REST API.
+2. `scripts/organize.js` queries LeetCode's GraphQL API for each problem's topic tags, then moves the solution folder into the appropriate subdirectory under `solutions/`.
 
-Run it manually anytime, or let it run automatically once a week.
+The workflow runs on a weekly schedule or on-demand via `workflow_dispatch`.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
     A[Trigger: manual or weekly cron] --> B[joshcai/leetcode-sync action]
-    B --> C[Commits new solutions directly via GitHub REST API]
-    C --> D[actions/checkout - pulls the updated repo locally]
+    B --> C[Commits new solutions via GitHub REST API]
+    C --> D[actions/checkout]
     D --> E[node scripts/organize.js]
     E --> F{Query LeetCode GraphQL for topicTags}
-    F -->|tag mapped in config| G[Move folder into matching topic folder]
-    F -->|no mapping found| H[Move folder into Misc]
+    F -->|tag mapped in config| G[Move into matching topic folder]
+    F -->|no mapping found| H[Move into Misc]
     G --> I[git commit + push]
     H --> I
 ```
 
-The sync step and the organize step are architecturally different: sync writes directly to GitHub via API, organize operates on a local checkout. That's why the workflow checks out the repo *after* syncing — the two steps don't share a filesystem by default.
+One design detail worth noting: the sync step writes directly to GitHub via API, while the organize step runs against a local checkout. These two steps don't share a filesystem, which is why `actions/checkout` runs *after* the sync — it needs to pull the commits that the sync action just made.
 
-## Setup (10 minutes)
+## Setup
 
-1. Click **Use this template** at the top of this page and choose **Create a new repository**. Use a template — not a fork — so you get a clean copy with no history shared with this repo, and your secrets stay completely separate.
-2. Go to **Settings → Actions → General → Workflow permissions**, select **Read and write permissions**, save.
-3. Log into LeetCode, open DevTools → Network tab, refresh, and grab the `LEETCODE_SESSION` and `csrftoken` cookie values from any request's headers.
-4. Go to **Settings → Secrets and variables → Actions**, add two repo secrets: `LEETCODE_SESSION` and `LEETCODE_CSRF_TOKEN`.
-5. Go to the **Actions** tab, select **Sync LeetCode**, click **Run workflow**.
+**Prerequisites:** a GitHub account and a LeetCode account.
 
-That's it. Every future run syncs new solutions and files them into the right topic folder automatically.
+1. Click **Use this template** above and choose **Create a new repository**. Use the template option rather than a fork — this gives you a clean history with no link back to this repo, and your secrets are entirely your own.
+2. In your new repo: **Settings → Actions → General → Workflow permissions** → select **Read and write permissions** → Save.
+3. Open LeetCode in a browser, log in, and open DevTools (F12) → **Network** tab → refresh the page → click any request → **Headers** → find the `Cookie` header and copy the values of `LEETCODE_SESSION` and `csrftoken`.
+4. In your repo: **Settings → Secrets and variables → Actions** → add two repository secrets:
+   - `LEETCODE_SESSION`
+   - `LEETCODE_CSRF_TOKEN`
+5. Go to the **Actions** tab → **Sync LeetCode** → **Run workflow**.
 
+On subsequent runs, new accepted submissions are synced and organized automatically.
 
-## Customizing the categorization
+## Customizing topic folders
 
-Folder mapping lives entirely in [`config/tag-folder-map.json`](config/tag-folder-map.json) — it's the only file you need to touch to change how things are organized. Add a new tag-to-folder mapping and future runs pick it up with no code changes.
+All categorization logic is in [`config/tag-folder-map.json`](config/tag-folder-map.json). It maps LeetCode's topic tag names (exactly as returned by their API) to folder names under `solutions/`. The `_default` key controls the fallback folder for unmapped tags.
 
 ```json
 {
   "_default": "Misc",
-  "Database": "SQL-DBMS",
-  "Dynamic Programming": "DP"
+  "Dynamic Programming": "DP",
+  "Database": "SQL-DBMS"
 }
 ```
 
-## Repo structure
+Editing this file is the only change needed to add or rename a topic category — no code changes required.
+
+## Repository structure
 
 ```
-├── .github/workflows/leetcode_sync.yml   # sync + organize, one job
-├── AGENTS.md                             # tells AI coding agents how to use this repo
-├── CONTRIBUTING.md                       # how to extend topic mappings
-├── config/tag-folder-map.json            # your categorization rules
-├── scripts/organize.js                   # the organizer logic
-├── tools/refresh-secrets/                # local helper to refresh session secrets
+├── .github/workflows/leetcode_sync.yml   # workflow: sync + organize
+├── AGENTS.md                             # context file for AI coding agents
+├── CONTRIBUTING.md
+├── config/tag-folder-map.json            # topic tag → folder mapping
+├── scripts/organize.js                   # organizer script
+├── tools/refresh-secrets/                # local utility to rotate session secrets
 │   ├── refresh.js
 │   └── lib/
 │       ├── encryptor.js
 │       └── github-client.js
-└── solutions/                            # your synced, auto-sorted solutions
+└── solutions/                            # auto-sorted problem solutions
     ├── Arrays/
-    ├── SQL-DBMS/
     ├── DP/
+    ├── Graphs/
     └── ...
 ```
 
-## Connect an AI coding agent
+## Using with an AI coding agent
 
-Because everything here is plain files in folders — not locked behind a dashboard or a proprietary API — any AI coding agent (Claude Code, Cursor, Copilot Workspace) can reason over your entire solving history the moment you clone the repo locally.
+Because solutions live as plain files in a predictable folder structure, any AI agent with filesystem access (Claude Code, Cursor, Copilot Workspace) can reason over your full solving history without any additional setup.
 
-`AGENTS.md` at the repo root tells your agent exactly how the folders are structured, so you can immediately ask things like:
+`AGENTS.md` at the repo root describes the folder conventions and suggests useful queries:
 
-- *"Look at my `solutions/DP` folder and tell me what patterns I've covered and what I'm missing."*
-- *"Review my `solutions/Graphs` folder for style consistency."*
-- *"Based on `solutions/`, suggest my next 5 problems to close gaps."*
+- *"What patterns have I covered in `solutions/DP`, and what's missing?"*
+- *"Review `solutions/Graphs` for consistency across languages."*
+- *"Suggest the next 5 problems based on gaps in `solutions/`."*
 
-No integration setup required — clone, open in your agent of choice, and ask.
+## Security
 
-## Security notes
+- `LEETCODE_SESSION` is a live session token. It is stored as a GitHub encrypted secret and is never written to logs or visible in the repository.
+- Because this is a template repository (not a fork), secrets are never inherited by users who create copies — each user configures their own.
+- Session cookies expire periodically by design. When the sync workflow starts failing, see [Session expiry](#session-expiry) below.
+- If your solutions contain anything you'd prefer to keep private, set your copy of this repo to private.
 
-- Your `LEETCODE_SESSION` cookie is a live session token — treat it like a password. It's stored as a GitHub encrypted secret, which means it's never printed in logs and never visible in the repo itself.
-- Because this is a template (not a fork), your secrets are never inherited by anyone who uses this template — they add their own.
-- Session cookies expire periodically; if syncing starts failing, just grab a fresh cookie and update the secret.
-- Consider making your copy private if your solutions or notes contain anything you'd rather not make public.
+## Session expiry
+
+LeetCode session cookies are short-lived. When they expire, the sync workflow will fail with an authentication error (visible in the Actions tab).
+
+Two options for rotating the secrets:
+
+**Option 1 — Manual:** repeat the DevTools cookie-copy steps from Setup above and update the two repo secrets.
+
+**Option 2 — Local script:** from a local clone of the repo, run:
+
+```bash
+cd tools/refresh-secrets
+npm install        # first time only
+cp .env.example .env  # first time only — fill in GITHUB_PAT and GITHUB_OWNER
+npm start
+```
+
+A browser window opens, you log into LeetCode normally, and the script handles encryption and secret rotation via GitHub's API. Your credentials never touch the script — it only reads the resulting session cookie. See [`tools/refresh-secrets/`](tools/refresh-secrets/) for full setup details.
 
 ## Credit
 
-Built on top of [`joshcai/leetcode-sync`](https://github.com/joshcai/leetcode-sync) for the sync step. The organize layer, topic-tag mapping, and combined workflow are original.
-
-## Keeping it running: when your session expires
-
-LeetCode session cookies aren't permanent — they're deliberately short-lived, since that's how session-based auth is supposed to work. Eventually the sync workflow will start failing (check the Actions tab — you'll see an auth error).
-
-When that happens, you have two options:
-
-1. **Manual refresh** — repeat the DevTools cookie-copy steps from Setup above and update your two repo secrets.
-2. **Faster refresh** (if you've cloned the repo locally) — run `node tools/refresh-secrets/refresh.js`. It opens a real browser, you log in like normal, and it automatically re-encrypts and updates your GitHub secrets for you. See [`tools/refresh-secrets/`](tools/refresh-secrets/) for one-time setup.
-
-Either way, your password never touches this tool — you always log in directly on LeetCode's own page. The script only ever reads the resulting session cookie, the same value you'd otherwise copy by hand.
+Sync functionality is provided by [`joshcai/leetcode-sync`](https://github.com/joshcai/leetcode-sync). The topic-tag organization layer, config-driven mapping, and combined workflow are original additions.
 
 ## License
 
-MIT — use it, fork it, adapt it.
+[MIT](LICENSE)

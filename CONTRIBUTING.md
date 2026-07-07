@@ -1,12 +1,12 @@
 # Contributing
 
-Thanks for checking this out. This repo is primarily a personal learning archive, but it's designed as an open template — contributions that make it more useful for other people are welcome.
+This is primarily a personal learning archive, but it's structured as an open template. Contributions that improve usability for others are welcome — particularly around topic tag coverage.
 
-## Extending the topic mapping
+## Extending topic mappings
 
-The only file you'll ever need to touch is [`config/tag-folder-map.json`](config/tag-folder-map.json). It maps LeetCode's official topic tags to the folder names used inside `solutions/`.
+The sole configuration file for categorization is [`config/tag-folder-map.json`](config/tag-folder-map.json). It maps LeetCode's topic tag names to folder names under `solutions/`.
 
-To add a new category:
+To add coverage for a new topic, append to the map:
 
 ```json
 {
@@ -15,9 +15,9 @@ To add a new category:
 }
 ```
 
-Tag names must match LeetCode's tags exactly — they're case-sensitive. You can find the exact string by opening any LeetCode problem and reading the tags listed at the bottom of the problem page.
+Tag names are case-sensitive and must match LeetCode's tags exactly. The canonical value is visible at the bottom of any problem page on LeetCode, or via their GraphQL API (`topicTags[].name`).
 
-The `_default` key controls where problems land when no tag matches:
+The `_default` key determines the fallback folder when no tag in a problem's tag list matches any entry in the map:
 
 ```json
 {
@@ -27,19 +27,21 @@ The `_default` key controls where problems land when no tag matches:
 
 ## Reporting issues
 
-If the sync workflow stops working — usually because a session cookie expired — that's expected behavior, not a bug. See the [Session refresh](README.md#keeping-it-running-when-your-session-expires) section in the main README.
+Authentication failures (sync workflow failing with a 403 or session error) are almost always caused by an expired session cookie — this is expected behavior, not a bug. Refer to the [Session expiry](README.md#session-expiry) section in the main README.
 
-For anything else, open an issue describing:
-- What you expected to happen
-- What actually happened
-- The relevant workflow run log (Actions tab → failed run → expand the failing step)
+For anything else, open an issue with:
+- The expected behavior
+- The actual behavior
+- The relevant step log from the failed workflow run (Actions tab → failed run → expand the failing step)
 
-## Things that are out of scope
+## Out of scope
 
-- Changing how `joshcai/leetcode-sync` works — that's an upstream dependency
-- Adding dashboards, visualizations, or web UIs — keep the repo plain files
-- Storing solution explanations or editorial notes — solutions stay as submitted
+The following are intentionally not part of this project:
+
+- **Upstream sync behavior** — changes to how `joshcai/leetcode-sync` fetches submissions are out of scope; raise those upstream.
+- **Dashboards or visualizations** — the repo is designed to stay as plain files. The AI agent integration covers the analysis use case.
+- **Solution annotations or editorials** — solutions are stored as submitted; notes belong in a separate system.
 
 ## License
 
-MIT — do whatever you want with this, just don't hold me liable.
+MIT
